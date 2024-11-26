@@ -1,0 +1,31 @@
+{
+    "name": "trelica-api-sdk",
+    "version": "1.0.0",
+    "type": "module",
+    "description": "A TypeScript SDK for interacting with the Trelica API",
+    "main": "./dist/cjs/index.js",
+    "module": "./dist/esm/index.js",
+    "types": "./dist/index.d.ts",
+    "scripts": {
+        "clean": "rm -rf dist",
+        "build:cjs": "tsc --project tsconfig.cjs.json",
+        "build:esm": "tsc --project tsconfig.esm.json",
+        "build": "npm run build:esm && npm run build:cjs",
+        "test": "echo \"No test specified\" && exit 0"
+    },
+    "devDependencies": {
+        "@types/node-fetch": "^2.6.12",
+        "typescript": "^5.0.0"
+    },
+    "license": "MIT",
+    "dependencies": {
+        "form-data": "^4.0.1",
+        "node-fetch": "^3.3.2"
+    },
+    "exports": {
+        ".": {
+            "require": "./dist/cjs/index.js",
+            "import": "./dist/esm/index.js"
+        }
+    }
+}

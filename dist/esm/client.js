@@ -7,6 +7,11 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+import { SDKError, SDKServerError } from "./errors/SDKError.js";
+import { safeConvertToString } from "./utils/converters.js";
+function isVoid() {
+    return undefined === undefined;
+}
 export default class APIClient {
     constructor(baseURL, clientId, clientSecret) {
         this.baseURL = baseURL;
@@ -40,7 +45,7 @@ export default class APIClient {
                 body: body.toString(),
             });
             if (!response.ok) {
-                throw new Error(`Failed to authenticate: ${response.statusText}`);
+                throw new SDKError(`Failed to authenticate: ${response.statusText}`, { clientId: this.clientId });
             }
             const data = (yield response.json());
             this.token = data.access_token;
@@ -55,7 +60,20 @@ export default class APIClient {
             const fetch = yield this.getFetch();
             const url = new URL(endpoint, this.baseURL);
             if (options.params) {
-                Object.entries(options.params).forEach(([key, value]) => url.searchParams.append(key, value));
+                for (const key in options.params) {
+                    let value = options.params[key];
+                    let convertedValue;
+                    try {
+                        convertedValue = safeConvertToString(value);
+                    }
+                    catch (error) {
+                        if (error instanceof Error) {
+                            throw new SDKError(`Invalid parameter "${key}": ${error.message}`, { key, value });
+                        }
+                        throw new SDKError('An unknown error occurred during conversion.', { value });
+                    }
+                    url.searchParams.append(key, convertedValue);
+                }
             }
             const response = yield fetch(url.toString(), {
                 method,
@@ -66,9 +84,42 @@ export default class APIClient {
                 body: options.body ? JSON.stringify(options.body) : null,
             });
             if (!response.ok) {
-                throw new Error(`Request failed: ${response.statusText}`);
+                throw new SDKServerError(`Request failed: ${response.statusText}`, url, response.status, yield response.text());
             }
-            return response.json();
+            if (response.status === 204 || response.headers.get('Content-Length') === '0') {
+                // If T is explicitly `void`, return undefined
+                if (isVoid()) {
+                    return undefined;
+                }
+                throw new SDKError('Expected a response body but received none.', { status: response.status, url });
+            }
+            try {
+                return yield response.json();
+            }
+            catch (error) {
+                throw new SDKError('Failed to parse response JSON.', { status: response.status, url });
+            }
+        });
+    }
+    /**
+   * Fetch all items from a paginated endpoint.
+   * @param endpoint - The API endpoint to fetch data from.
+   * @param params - Query parameters for the request.
+   * @returns A promise that resolves to an array of all results.
+   */
+    fetchAll(endpoint_1) {
+        return __awaiter(this, arguments, void 0, function* (endpoint, params = {}) {
+            const results = [];
+            let next = endpoint;
+            while (next) {
+                const response = yield this.get(next, params);
+                results.push(...response.results);
+                // Update `next` for the next page
+                next = response.next;
+                // Clear query parameters for subsequent pages
+                params = {};
+            }
+            return results;
         });
     }
     get(endpoint, params) {
@@ -76,5 +127,14 @@ export default class APIClient {
     }
     patch(endpoint, body) {
         return this.request('PATCH', endpoint, { body });
+    }
+    put(endpoint, body) {
+        return this.request('PUT', endpoint, { body });
+    }
+    post(endpoint, body) {
+        return this.request('POST', endpoint, { body });
+    }
+    delete(endpoint) {
+        return this.request('DELETE', endpoint);
     }
 }

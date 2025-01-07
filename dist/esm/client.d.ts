@@ -9,6 +9,16 @@ export default class APIClient {
     private getFetch;
     private authenticate;
     private request;
-    get<T>(endpoint: string, params?: Record<string, any>): Promise<T>;
-    patch<T>(endpoint: string, body: any): Promise<T>;
+    /**
+   * Fetch all items from a paginated endpoint.
+   * @param endpoint - The API endpoint to fetch data from.
+   * @param params - Query parameters for the request.
+   * @returns A promise that resolves to an array of all results.
+   */
+    fetchAll<T>(endpoint: string, params?: Record<string, unknown>): Promise<T[]>;
+    get<T>(endpoint: string, params?: Record<string, unknown>): Promise<T>;
+    patch<T>(endpoint: string, body: unknown): Promise<T>;
+    put<T>(endpoint: string, body: unknown): Promise<T>;
+    post<T>(endpoint: string, body: unknown): Promise<T>;
+    delete<T>(endpoint: string): Promise<void>;
 }

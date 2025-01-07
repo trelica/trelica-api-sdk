@@ -1,20 +1,64 @@
-import APIClient from "../client";
-import { ITrelicaApp } from "../models/app";
+import APIClient from "../client.js";
+import { Trelica } from "../models/app.js";
+
+interface ListAppsParams {
+    q?: string; // Optional search query
+    limit?: number; // Optional limit on the number of results
+    filter?: string; // Optional filter string
+    since?: string; // Optional UTC date
+}
+
+interface ListAppUsersParams {
+    //    q?: string; // Optional search query
+    limit?: number; // Optional limit on the number of results
+    filter?: string; // Optional filter string
+    since?: string; // Optional UTC date
+}
 
 export class AppsAPI {
     constructor(private client: APIClient) { }
 
     /**
+     * Type guard to check if a custom field is of type "Option".
+     * @param field - The field to check.
+     * @returns True if the field is an IOptionAppCustomField.
+     */
+    public static isOptionAppCustomField(field: Trelica.IBaseAppCustomField): field is Trelica.IOptionAppCustomField {
+        return field.type === "Option" && "options" in field;
+    }
+
+    /**
+      * Fetch a single app.
+      *
+      * @param appId - App ID
+      */
+    public async getApp(appId: string): Promise<Trelica.IApp> {
+        return this.client.get(`/api/apps/v1/${encodeURIComponent(appId)}`);
+    }
+
+    /**
+      * Update an app.
+      *
+      * @param appId - App ID
+      */
+    public async updateApp(appId: string, updates: Trelica.IPatchApp): Promise<Trelica.IApp> {
+        return this.client.patch(`/api/apps/v1/${encodeURIComponent(appId)}`, updates);
+    }
+    /**
+      * Create a new app.
+      *
+      * @param app - An app object
+      */
+    public async createApp(app: Trelica.IPutApp): Promise<Trelica.ICreatedApp> {
+        return this.client.post(`/api/apps/v1`, app);
+    }
+
+    /**
       * Fetch a single paginated list of apps.
       *
       * @param params - Query parameters for the request (e.g., `limit`, `filter`).
-      * @returns A promise that resolves to an object containing:
-      *   - `results`: An array of `ITrelicaApp`.
-      *   - `next`: The URL for the next page of results, if available.
       */
-    public async listApps(
-        params: Record<string, any> = {}
-    ): Promise<{ next?: string; results: ITrelicaApp[]; }> {
+    public async listApps(params: Record<string, string> = {}): Promise<{ next?: string; results: Trelica.IApp[]; }> {
         return this.client.get('/api/apps/v1', params);
     }
 
@@ -22,27 +66,38 @@ export class AppsAPI {
      * Fetch all apps across all pages.
      *
      * @param params - Query parameters for the request (e.g., `limit`, `filter`).
-     * @returns A promise that resolves to an array of all `ITrelicaApp` objects.
+     * @returns A promise that resolves to an array of all `IApp` objects.
      */
-    public async listAllApps(params: Record<string, any> = {}): Promise<ITrelicaApp[]> {
-        const results: ITrelicaApp[] = [];
-        let next: string | undefined = '/api/apps/v1';
-
-        while (next) {
-            const response: { next?: string; results: ITrelicaApp[]; } = await this.client.get(next, params);
-            results.push(...response.results);
-            next = response.next;
-            params = {}; // clear down for page 2
-        }
-
-        return results;
+    public async listAllApps(params: ListAppsParams = {}): Promise<Trelica.IApp[]> {
+        return this.client.fetchAll<Trelica.IApp>('/api/apps/v1', params as Record<string, unknown>);
     }
 
-    public async updateApp(appId: string, updates: Partial<ITrelicaApp>): Promise<ITrelicaApp> {
-        return this.client.patch(`/api/apps/v1/${appId}`, updates);
+    /**
+     * Fetch all custom fields across all pages.
+     *
+     * @param params - Query parameters for the request (e.g., `limit`).
+     */
+    public async listAllCustomFields(params: { limit?: number; }): Promise<Trelica.IAppCustomField[]> {
+        return this.client.fetchAll<Trelica.IAppCustomField>('/api/apps/v1/customfields', params);
     }
 
-    public async listAppUsers(appId: string, params: Record<string, any> = {}): Promise<{ next?: string, results: any[]; }> {
-        return this.client.get(`/api/apps/v1/${appId}/users`, params);
+    /**
+      * Fetch a single paginated list of app users.
+      *
+      * @param params - Query parameters for the request (e.g., `limit`, `filter`).
+      */
+    public async listAppUsers(appId: string, params: Record<string, string> = {}): Promise<{ next?: string, results: Trelica.IAppUser[]; }> {
+        return this.client.get(`/api/apps/v1/${encodeURIComponent(appId)}/users`, params);
     }
+
+    /**
+     * Fetch all app users across all pages.
+     *
+     * @param appId - App ID
+     * @param params - Query parameters for the request (e.g., `limit`, `filter`).
+     */
+    public async listAllAppUsers(appId: string, params: ListAppUsersParams = {}): Promise<Trelica.IAppUser[]> {
+        return this.client.fetchAll<Trelica.IAppUser>(`/api/apps/v1/${encodeURIComponent(appId)}/users`, params as Record<string, unknown>);
+    }
+
 }
